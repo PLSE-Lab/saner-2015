@@ -6,6 +6,7 @@ import lang::php::util::Corpus;
 import lang::php::util::Utils;
 import lang::php::util::Config;
 import lang::php::metrics::CC;
+import lang::php::stats::Stats;
 
 import Set;
 import List;
@@ -175,4 +176,34 @@ public map[str,int] countMethodDefs(str p) {
 		classDefs[v] = size([ c | /ClassDef c := sys ]);
 	}	
 	return classDefs;
+}
+
+data VarFeatureCounts = varFeatureCounts(int varVar, int varFCall, int varMCall, int varNew, int varProp, 
+	int varClassConst, int varStaticCall, int varStaticTarget, int varStaticPropertyName, int varStaticPropertyTarget);
+	
+public VarFeatureCounts getVarFeatureCounts(System sys) {
+	int vvuses = size([ e | <_,e> <-  gatherVarVarUses(sys)]); 
+	int vvcalls = size([ e | <_,e> <-  gatherVVCalls(sys)]);
+	int vvmcalls = size([ e | <_,e> <-  gatherMethodVVCalls(sys)]);
+	int vvnews = size([ e | <_,e> <-  gatherVVNews(sys)]);
+	int vvprops = size([ e | <_,e> <-  gatherPropertyFetchesWithVarNames(sys)]);
+	int vvcconsts = size([ e | <_,e> <-  gatherVVClassConsts(sys)]);
+	int vvscalls = size([ e | <_,e> <-  gatherStaticVVCalls(sys)]);
+	int vvstargets = size([ e | <_,e> <-  gatherStaticVVTargets(sys)]);
+	int vvsprops = size([ e | <_,e> <-  gatherStaticPropertyVVNames(sys)]);
+	int vvsptargets = size([ e | <_,e> <-  gatherStaticPropertyVVTargets(sys)]);
+	
+	return varFeatureCount(vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets); 
+}
+
+data MagicMethodCounts = magicMethodCounts(int sets, int gets, int isSets, int unsets, int calls, int staticCalls);
+
+public MagicMethodCounts magicMethodUses(System sys) {
+	sets = size(fetchOverloadedSet(sys));
+	gets = size(fetchOverloadedGet(sys));
+	isSets = size(fetchOverloadedIsSet(sys));
+	unsets = size(fetchOverloadedUnset(sys));
+	calls = size(fetchOverloadedCall(sys));
+	staticCalls = size(fetchOverloadedCallStatic(sys));
+	return magicMethodCounts(sets, gets, isSets, unsets, calls, staticCalls);
 }

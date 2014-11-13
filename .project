@@ -3,6 +3,7 @@
 	<name>SANER 2015</name>
 	<comment></comment>
 	<projects>
+		<project>PHPAnalysis</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
