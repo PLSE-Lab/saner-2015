@@ -14,7 +14,7 @@ import ValueIO;
 import IO;
 
 data Summary 
-	= systemSummary(set[Summary] classes, set[Summary] interfaces, set[Summary] functions, int functionCallCount, int methodCallCount, int staticCallCount, int stmtCount, int exprCount, map[str,int] topFunctions, list[Summary] exceptionInfo, int throwCount)
+	= systemSummary(set[Summary] classes, set[Summary] interfaces, set[Summary] functions, int functionCallCount, int methodCallCount, int staticCallCount, int stmtCount, int exprCount, map[str,int] topFunctions, list[Summary] exceptionInfo, int throwCount, VarFeatureCounts varFeatures, MagicMethodCounts magicMethods, IncludeCounts includeCounts, EvalLikeCounts evalCounts, InvocationCounts invocationCounts)
 	| classSummary(str className, set[Summary] methods, set[Modifier] modifiers, int expCount, int stmtCount, loc at)
 	| interfaceSummary(str className, set[Summary] methods, loc at)
 	| methodSummary(str methodName, int expCount, int stmtCount, set[Modifier] modifiers, int cc, loc at)
@@ -77,7 +77,7 @@ public Summary extractSummaries(System sys) {
 		exceptionInfo = exceptionInfo + es;
 	}
 	
-	return systemSummary(classSummaries, interfaceSummaries, functionSummaries, functionCallCount, methodCallCount, staticCallCount, stmtCount, exprCount, ( cs : callCounts[cs] | cs <- callCounts, callCounts[cs] > cutoff), exceptionInfo, throwCount);
+	return systemSummary(classSummaries, interfaceSummaries, functionSummaries, functionCallCount, methodCallCount, staticCallCount, stmtCount, exprCount, ( cs : callCounts[cs] | cs <- callCounts, callCounts[cs] > cutoff), exceptionInfo, throwCount, getVarFeatureCounts(sys), getMagicMethodCounts(sys), getIncludeCounts(sys), getEvalLikeCounts(sys), getInvocationCounts(sys));
 }
 
 public Summary extractSummaries(str p, str v) {
@@ -193,12 +193,12 @@ public VarFeatureCounts getVarFeatureCounts(System sys) {
 	int vvsprops = size([ e | <_,e> <-  gatherStaticPropertyVVNames(sys)]);
 	int vvsptargets = size([ e | <_,e> <-  gatherStaticPropertyVVTargets(sys)]);
 	
-	return varFeatureCount(vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets); 
+	return varFeatureCounts(vvuses, vvcalls, vvmcalls, vvnews, vvprops, vvcconsts, vvscalls, vvstargets, vvsprops, vvsptargets); 
 }
 
 data MagicMethodCounts = magicMethodCounts(int sets, int gets, int isSets, int unsets, int calls, int staticCalls);
 
-public MagicMethodCounts magicMethodUses(System sys) {
+public MagicMethodCounts getMagicMethodCounts(System sys) {
 	sets = size(fetchOverloadedSet(sys));
 	gets = size(fetchOverloadedGet(sys));
 	isSets = size(fetchOverloadedIsSet(sys));
@@ -206,4 +206,38 @@ public MagicMethodCounts magicMethodUses(System sys) {
 	calls = size(fetchOverloadedCall(sys));
 	staticCalls = size(fetchOverloadedCallStatic(sys));
 	return magicMethodCounts(sets, gets, isSets, unsets, calls, staticCalls);
+}
+
+data IncludeCounts = includeCounts(int totalIncludes, int dynamicIncludes);
+
+public IncludeCounts getIncludeCounts(System sys) {
+	totalIncludes = size([ i | /i:include(_,_) := sys ]);
+	dynamicIncludes = size(gatherIncludesWithVarPaths(sys));
+	return includeCounts(totalIncludes, dynamicIncludes);
+}
+
+data EvalLikeCounts = evalLikeCounts(int evalCount, int createFunctionCount);
+
+public EvalLikeCounts getEvalLikeCounts(System sys) {
+	createFunctionCount = size([ e | /e:call(name(name("create_function")),_) := sys]);
+	evalCount = size(gatherEvals(sys));
+	return evalLikeCounts(evalCount, createFunctionCount);
+}
+
+
+data InvocationCounts = invocationCounts(int callUserFunc, int callUserFuncArray, int callUserMethod, int callUserMethodArray);
+
+public InvocationCounts getInvocationCounts(System sys) {
+	funsToFind = { "call_user_func", "call_user_func_array", "call_user_method", "call_user_method_array" };
+	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys, fn in funsToFind ];
+	return invocationCounts(size(invokers["call_user_func"]), size(invokers["call_user_func_array"]), size(invokers["call_user_method"]), size(invokers["call_user_method_array"]));
+}
+
+// NOTE: We are leaving this out for now...
+data VarargsCounts = varargsCounts(int varArgsFunctions, int varArgsCalls);
+
+public VarargsCounts getVarargsCounts(System sys) {
+	funsToFind = { "func_get_args", "func_num_args", "func_get_arg" };
+	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys, fn in funsToFind ];
+	return varargsCounts(0, size(invokers));
 }
