@@ -27,7 +27,7 @@ public Summary extractSummaries(System sys) {
 	for (/ClassDef cdef := sys) {
 		Summary s = classSummary(cdef.className, {}, cdef.modifiers, size([st | /Stmt st := cdef]), size([ex | /Expr ex := cdef]), cdef@at);
 		for (/ClassItem ci := cdef.members, ci is method) {
-			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, computeCC(ci.body), ci@at);
+			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, 0 /*computeCC(ci.body)*/, ci@at);
 		}
 		classSummaries = classSummaries + s;
 	}
@@ -36,14 +36,14 @@ public Summary extractSummaries(System sys) {
 	for (/InterfaceDef idef := sys) {
 		Summary s = interfaceSummary(idef.interfaceName, {}, idef@at);
 		for (/ClassItem ci := idef.members, ci is method) {
-			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, computeCC(ci.body), ci@at);
+			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, 0 /*computeCC(ci.body)*/, ci@at);
 		}
 		interfaceSummaries = interfaceSummaries + s;
 	}
 	
 	set[Summary] functionSummaries = { };
 	for (/fdef:function(str name, _, _, list[Stmt] body) := sys) {
-		Summary s = functionSummary(name, size([st | /Stmt st := body]), size([ex | /Expr ex := body]), computeCC(body), fdef@at);
+		Summary s = functionSummary(name, size([st | /Stmt st := body]), size([ex | /Expr ex := body]), 0 /*computeCC(body)*/, fdef@at);
 		functionSummaries = functionSummaries + s;
 	}
 
@@ -230,7 +230,13 @@ data InvocationCounts = invocationCounts(int callUserFunc, int callUserFuncArray
 public InvocationCounts getInvocationCounts(System sys) {
 	funsToFind = { "call_user_func", "call_user_func_array", "call_user_method", "call_user_method_array" };
 	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys, fn in funsToFind ];
-	return invocationCounts(size(invokers["call_user_func"]), size(invokers["call_user_func_array"]), size(invokers["call_user_method"]), size(invokers["call_user_method_array"]));
+	
+	callUserFuncCount = ("call_user_func" in invokers) ? size(invokers["call_user_func"]) : 0;
+	callUserFuncArrayCount = ("call_user_func_array" in invokers) ? size(invokers["call_user_func_array"]) : 0;
+	callUserMethodCount = ("call_user_method" in invokers) ? size(invokers["call_user_method"]) : 0;
+	callUserMethodArrayCount = ("call_user_method_array" in invokers) ? size(invokers["call_user_method_array"]) : 0;
+	 
+	return invocationCounts(callUserFuncCount, callUserFuncArrayCount, callUserMethodCount, callUserMethodArrayCount);
 }
 
 // NOTE: We are leaving this out for now...
