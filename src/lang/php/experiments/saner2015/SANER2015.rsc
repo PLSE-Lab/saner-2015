@@ -279,3 +279,8 @@ public str generateNumbersFile(set[str] systems) {
 	}
 	return res;
 }
+
+public void writeNumbersFile(set[str] systems) {
+	fileText = generateNumbersFile(systems);
+	writeFile(|project://SANER%202015/src/lang/php/experiments/saner2015/dynamic.csv|, fileText);
+}
