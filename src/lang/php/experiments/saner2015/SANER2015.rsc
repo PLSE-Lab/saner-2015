@@ -13,6 +13,10 @@ import List;
 import ValueIO;
 import IO;
 
+import lang::csv::IO;
+import SLOC = |csv+rascal://src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
+//import DynamicUses = |csv+rascal://src/lang/php/experiments/saner2015/dynamic.csv?funname=dynamicUses|;
+
 data Summary 
 	= systemSummary(set[Summary] classes, set[Summary] interfaces, set[Summary] functions, int functionCallCount, int methodCallCount, int staticCallCount, int stmtCount, int exprCount, map[str,int] topFunctions, list[Summary] exceptionInfo, int throwCount, VarFeatureCounts varFeatures, MagicMethodCounts magicMethods, IncludeCounts includeCounts, EvalLikeCounts evalCounts, InvocationCounts invocationCounts)
 	| classSummary(str className, set[Summary] methods, set[Modifier] modifiers, int expCount, int stmtCount, loc at)
@@ -248,7 +252,7 @@ public VarargsCounts getVarargsCounts(System sys) {
 }
 
 public list[int] getNumbersForSystem(Summary s) {
-	list[int] stats = [ ];
+	list[int] stats = [ s.exprCount, s.stmtCount ];
 	
 	VarFeatureCounts vc = s.varFeatures;
 	varStats = [ vc.varVar, vc.varFCall, vc.varMCall, vc.varNew, vc.varProp, vc.varClassConst, vc.varStaticCall, vc.varStaticTarget, vc.varStaticPropertyName, vc.varStaticPropertyTarget ];
@@ -265,11 +269,12 @@ public list[int] getNumbersForSystem(Summary s) {
 	InvocationCounts ivc = s.invocationCounts; 	
 	invokeStats = [ ivc.callUserFunc, ivc.callUserFuncArray, ivc.callUserMethod, ivc.callUserMethodArray ];
 	
-	return varStats + magicStats + includeStats + evalStats + invokeStats;	
+	return stats + varStats + magicStats + includeStats + evalStats + invokeStats;	
 }
 
 public list[str] getColumnHeaders() {
-	list[str] res = [ "System", "Version", "Variable Variables", "Variable Function Calls", "Variable Method Calls", "Variable News", "Variable Properties",
+	list[str] res = [ "System", "Version", "SLOC", "Files", "Exprs", "Stmts", 
+		"Variable Variables", "Variable Function Calls", "Variable Method Calls", "Variable News", "Variable Properties",
 		"Variable Class Constants", "Variable Static Calls", "Variable Static Targets", "Variable Static Properties", "Variable Static Property Targets",
 		"Magic Sets", "Magic Gets", "Magic isSets", "Magic Unsets", "Magic Calls", "Magic Static Calls",
 		"Total Includes", "Dynamic Includes",
@@ -280,8 +285,10 @@ public list[str] getColumnHeaders() {
 
 public str generateNumbersFile(set[str] systems) {
 	str res = intercalate(",",getColumnHeaders()) + "\n";
+	slocInfo = sloc();
 	for (s <- sort(toList(systems)), v <- getSortedVersions(s)) {
-		res = res + "<s>,<v>,<intercalate(",",getNumbersForSystem(readSummary(s,v)))>\n";
+		< lineCount, fileCount > = getOneFrom(slocInfo[s,v]);
+		res = res + "<s>,<v>,<lineCount>,<fileCount>,<intercalate(",",getNumbersForSystem(readSummary(s,v)))>\n";
 	}
 	return res;
 }
