@@ -8,13 +8,14 @@ import lang::php::util::Config;
 import lang::php::metrics::CC;
 import lang::php::stats::Stats;
 
+import String;
 import Set;
 import List;
 import ValueIO;
 import IO;
 
 import lang::csv::IO;
-import SLOC = |csv+rascal://src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
+import SLOC; // = |csv+rascal://src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
 //import DynamicUses = |csv+rascal://src/lang/php/experiments/saner2015/dynamic.csv?funname=dynamicUses|;
 
 data Summary 
@@ -255,19 +256,19 @@ public list[int] getNumbersForSystem(Summary s) {
 	list[int] stats = [ s.exprCount, s.stmtCount ];
 	
 	VarFeatureCounts vc = s.varFeatures;
-	varStats = [ vc.varVar, vc.varFCall, vc.varMCall, vc.varNew, vc.varProp, vc.varClassConst, vc.varStaticCall, vc.varStaticTarget, vc.varStaticPropertyName, vc.varStaticPropertyTarget ];
+	varStats = [ vc.varVar, vc.varFCall, vc.varMCall, vc.varNew, vc.varProp, vc.varClassConst, vc.varStaticCall, vc.varStaticTarget, vc.varStaticPropertyName, vc.varStaticPropertyTarget, sum([vc.varVar, vc.varFCall, vc.varMCall, vc.varNew, vc.varProp, vc.varClassConst, vc.varStaticCall, vc.varStaticTarget, vc.varStaticPropertyName, vc.varStaticPropertyTarget]) ];
 	
 	MagicMethodCounts mc = s.magicMethods;
-	magicStats = [ mc.sets, mc.gets, mc.isSets, mc.unsets, mc.calls, mc.staticCalls ];
+	magicStats = [ mc.sets, mc.gets, mc.isSets, mc.unsets, mc.calls, mc.staticCalls, sum([mc.sets, mc.gets, mc.isSets, mc.unsets, mc.calls, mc.staticCalls]) ];
 	
 	IncludeCounts ic = s.includeCounts;
 	includeStats = [ ic.totalIncludes, ic.dynamicIncludes ];
 	
 	EvalLikeCounts ec = s.evalCounts;
-	evalStats = [ ec.evalCount, ec.createFunctionCount ];
+	evalStats = [ ec.evalCount, ec.createFunctionCount, sum([ec.evalCount, ec.createFunctionCount]) ];
 	
 	InvocationCounts ivc = s.invocationCounts; 	
-	invokeStats = [ ivc.callUserFunc, ivc.callUserFuncArray, ivc.callUserMethod, ivc.callUserMethodArray ];
+	invokeStats = [ ivc.callUserFunc, ivc.callUserFuncArray, ivc.callUserMethod, ivc.callUserMethodArray, sum([ivc.callUserFunc, ivc.callUserFuncArray, ivc.callUserMethod, ivc.callUserMethodArray]) ];
 	
 	return stats + varStats + magicStats + includeStats + evalStats + invokeStats;	
 }
@@ -276,10 +277,13 @@ public list[str] getColumnHeaders() {
 	list[str] res = [ "System", "Version", "SLOC", "Files", "Exprs", "Stmts", 
 		"Variable Variables", "Variable Function Calls", "Variable Method Calls", "Variable News", "Variable Properties",
 		"Variable Class Constants", "Variable Static Calls", "Variable Static Targets", "Variable Static Properties", "Variable Static Property Targets",
+		"All Variable Features",
 		"Magic Sets", "Magic Gets", "Magic isSets", "Magic Unsets", "Magic Calls", "Magic Static Calls",
+		"All Magic Methods",
 		"Total Includes", "Dynamic Includes",
-		"Eval", "Create Function Uses",
-		"CallUserFunc", "CallUserFuncArray", "CallUserMethod", "CallUserMethodArray"];
+		"Eval", "Create Function Uses", "All Eval Features",
+		"CallUserFunc", "CallUserFuncArray", "CallUserMethod", "CallUserMethodArray",
+		"All Dynamic Invocations"];
 	return res;
 }
 
@@ -292,7 +296,112 @@ public str generateNumbersFile(set[str] systems) {
 	}
 	return res;
 }
+
 public void writeNumbersFile(set[str] systems) {
-	fileText = generateNumbersFile(systems);
-	writeFile(|project://SANER%202015/src/lang/php/experiments/saner2015/dynamic.csv|, fileText);
+	for (s <- systems) {
+		fileText = generateNumbersFile({s});
+		writeFile(|project://SANER%202015/src/lang/php/experiments/saner2015/dynamic-<s>.csv|, fileText);
+	}
+}
+
+private lrel[int,int] computeCoords(list[int] inputs) {
+	return [ < idx, inputs[idx] > | idx <- index(inputs) ];
+}
+
+private str makeCoords(list[int] inputs, str mark="", str legend="") {
+	return "\\addplot<if(size(mark)>0){>[mark=<mark>]<}> coordinates {
+		   '<intercalate(" ",[ "(<i>,<j>)" | < i,j > <- computeCoords(inputs)])>
+		   '};<if(size(legend)>0){>
+		   '\\addlegendentry{<legend>}<}>";
+}
+
+public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features", str label="fig:VarFeatures") {
+	list[str] coordinateBlocks = [ ];
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="Function Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="Method Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ], mark="+", legend="Object Creation");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ], mark="*", legend="Property Uses");
+
+	int maxcoord(str s) {
+		return max([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ]) + 10;
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
+public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+	list[str] coordinateBlocks = [ ];
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="Property Sets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="Property Gets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls | v <- getSortedVersions(s), v in smap[s] ], mark="+", legend="Calls");
+
+	int maxcoord(str s) {
+		return max([ smap[s][v].magicMethods.sets | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].magicMethods.gets | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].magicMethods.calls | v <- getSortedVersions(s), v in smap[s] ]) + 10;
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
+public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+	list[str] coordinateBlocks = [ ];
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="eval Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="create\\_function Uses");
+
+	int maxcoord(str s) {
+		return max([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].evalCounts.createFunctionCount | v <- getSortedVersions(s), v in smap[s] ]) + 10;
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
+public map[str,map[str,Summary]] getSummaries(set[str] systems) {
+	return ( s : ( v : readSummary(s,v) | v <- getVersions(s) ) | s <- systems );
+}
+
+public void makeCharts() {
+	smap = getSummaries({"WordPress","MediaWiki"});
+	writeFile(|file:///tmp/wpVar.tex|, varFeaturesChart(smap, "WordPress", title="Variable Features in WordPress", label="fig:VFWP"));
+	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
+
+	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
+	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW"));
+
+	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
+	writeFile(|file:///tmp/mwEval.tex|, evalsChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki", label="fig:EvalMW"));
 }
