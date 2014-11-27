@@ -60,8 +60,9 @@ public Summary extractSummaries(System sys) {
 			callCounts[n] = 1;
 		}
 	}
-	top20 = (reverse(sort([callCounts[cs] | cs <- callCounts])))[0..20];
-	cutoff = top20[-1];
+	ccList = reverse(sort([callCounts[cs] | cs <- callCounts]));
+	top20 = (size(ccList) >= 20) ? [0..20] : [ ];
+	cutoff = (size(ccList) >= 20) ? top20[-1] : 0;
 		
 	functionCallCount = size([c | /c:call(_,_) := sys]);
 	methodCallCount = size([c | /c:methodCall(_,_,_) := sys]);
@@ -397,11 +398,12 @@ public map[str,map[str,Summary]] getSummaries(set[str] systems) {
 public void makeCharts() {
 	smap = getSummaries({"WordPress","MediaWiki"});
 	writeFile(|file:///tmp/wpVar.tex|, varFeaturesChart(smap, "WordPress", title="Variable Features in WordPress", label="fig:VFWP"));
+	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
+	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
+
 	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
 
-	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
 	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW"));
 
-	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
 	writeFile(|file:///tmp/mwEval.tex|, evalsChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki", label="fig:EvalMW"));
 }
