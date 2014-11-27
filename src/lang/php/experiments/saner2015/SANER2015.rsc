@@ -305,11 +305,11 @@ public void writeNumbersFile(set[str] systems) {
 	}
 }
 
-private lrel[int,int] computeCoords(list[int] inputs) {
+private lrel[num,num] computeCoords(list[num] inputs) {
 	return [ < idx, inputs[idx] > | idx <- index(inputs) ];
 }
 
-private str makeCoords(list[int] inputs, str mark="", str legend="") {
+private str makeCoords(list[num] inputs, str mark="", str legend="") {
 	return "\\addplot<if(size(mark)>0){>[mark=<mark>]<}> coordinates {
 		   '<intercalate(" ",[ "(<i>,<j>)" | < i,j > <- computeCoords(inputs)])>
 		   '};<if(size(legend)>0){>
@@ -328,6 +328,35 @@ public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Va
 				   [ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ] +
 				   [ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ] +
 				   [ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ]) + 10;
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
+public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features Scaled", str label="fig:VarFeaturesScaled") {
+	list[str] coordinateBlocks = [ ];
+	slocInfo = sloc();
+	
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="Function Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="Method Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", legend="Object Creation");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="*", legend="Property Uses");
+
+	num maxcoord(str s) {
+		return max([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]) ;
 	}
 		
 	str res = "\\begin{figure*}[t]
@@ -402,6 +431,8 @@ public void makeCharts() {
 	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
 
 	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
+	writeFile(|file:///tmp/wpVarScaled.tex|, varFeaturesScaledChart(smap, "WordPress", title="Variable Features in WordPress, Scaled by SLOC", label="fig:VFWPScaled"));
+	writeFile(|file:///tmp/mwVarScaled.tex|, varFeaturesScaledChart(smap, "MediaWiki", title="Variable Features in MediaWiki, Scaled by SLOC", label="fig:VFMWScaled"));
 
 	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW"));
 
