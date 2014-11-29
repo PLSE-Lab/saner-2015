@@ -397,6 +397,33 @@ public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="M
 	return res;	
 }
 
+public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+	list[str] coordinateBlocks = [ ];
+	slocInfo = sloc();
+
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="Property Sets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="Property Gets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", legend="Calls");
+
+	num maxcoord(str s) {
+		return max([ smap[s][v].magicMethods.sets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].magicMethods.gets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].magicMethods.calls * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]);
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
 public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
 	list[str] coordinateBlocks = [ ];
 	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="eval Uses");
@@ -420,21 +447,57 @@ public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Me
 	return res;	
 }
 
+public str evalsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+	list[str] coordinateBlocks = [ ];
+	slocInfo = sloc();
+
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="eval Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="create\\_function Uses");
+
+	num maxcoord(str s) {
+		return max([ smap[s][v].evalCounts.evalCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].evalCounts.createFunctionCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]);
+	}
+		
+	str res = "\\begin{figure*}[t]
+			  '\\centering
+			  '\\begin{tikzpicture}
+			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '<for (cb <- coordinateBlocks) {> <cb> <}>
+			  '\\end{axis}
+			  '\\end{tikzpicture}
+			  '\\caption{<title>.\\label{<label>}} 
+			  '\\end{figure*}
+			  ";
+	return res;	
+}
+
 public map[str,map[str,Summary]] getSummaries(set[str] systems) {
 	return ( s : ( v : readSummary(s,v) | v <- getVersions(s) ) | s <- systems );
 }
 
 public void makeCharts() {
-	smap = getSummaries({"WordPress","MediaWiki"});
+	smap = getSummaries({"WordPress"});
 	writeFile(|file:///tmp/wpVar.tex|, varFeaturesChart(smap, "WordPress", title="Variable Features in WordPress", label="fig:VFWP"));
-	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
-	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
-
-	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
 	writeFile(|file:///tmp/wpVarScaled.tex|, varFeaturesScaledChart(smap, "WordPress", title="Variable Features in WordPress, Scaled by SLOC", label="fig:VFWPScaled"));
+	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
+	writeFile(|file:///tmp/wpMagicScaled.tex|, magicMethodsScaledChart(smap, "WordPress", title="Magic Methods in WordPress, Scaled by SLOC", label="fig:MMWPScaled"));
+	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
+	writeFile(|file:///tmp/wpEvalScaled.tex|, evalsScaledChart(smap, "WordPress", title="Eval Constructs in WordPress, Scaled by SLOC", label="fig:EvalWPScaled"));
+
+	smap = getSummaries({"MediaWiki"});
+	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
 	writeFile(|file:///tmp/mwVarScaled.tex|, varFeaturesScaledChart(smap, "MediaWiki", title="Variable Features in MediaWiki, Scaled by SLOC", label="fig:VFMWScaled"));
-
 	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW"));
-
+	writeFile(|file:///tmp/mwMagicScaled.tex|, magicMethodsScaledChart(smap, "MediaWiki", title="Magic Methods in MediaWiki, Scaled by SLOC", label="fig:MMMWScaled"));
 	writeFile(|file:///tmp/mwEval.tex|, evalsChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki", label="fig:EvalMW"));
+	writeFile(|file:///tmp/mwEvalScaled.tex|, evalsScaledChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki, Scaled by SLOC", label="fig:EvalMWScaled"));
+
+	smap = getSummaries({"phpMyAdmin"});
+	writeFile(|file:///tmp/maVar.tex|, varFeaturesChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin", label="fig:VFMA"));
+	writeFile(|file:///tmp/maVarScaled.tex|, varFeaturesScaledChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin, Scaled by SLOC", label="fig:VFMAScaled"));
+	writeFile(|file:///tmp/maMagic.tex|, magicMethodsChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin", label="fig:MMMA"));
+	writeFile(|file:///tmp/maMagicScaled.tex|, magicMethodsScaledChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin, Scaled by SLOC", label="fig:MMMAScaled"));
+	writeFile(|file:///tmp/maEval.tex|, evalsChart(smap, "phpMyAdmin", title="Eval Constructs in phpMyAdmin", label="fig:EvalMA"));
+	writeFile(|file:///tmp/maEvalScaled.tex|, evalsScaledChart(smap, "phpMyAdmin", title="Eval Constructs inphpMyAdmin, Scaled by SLOC", label="fig:EvalMAScaled"));
 }
