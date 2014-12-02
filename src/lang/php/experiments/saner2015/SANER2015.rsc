@@ -15,8 +15,8 @@ import ValueIO;
 import IO;
 
 import lang::csv::IO;
+// NOTE: Commented out so it is not recreated on each load; uncomment if this has not yet been created.
 import SLOC; // = |csv+rascal://src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
-//import DynamicUses = |csv+rascal://src/lang/php/experiments/saner2015/dynamic.csv?funname=dynamicUses|;
 
 data Summary 
 	= systemSummary(set[Summary] classes, set[Summary] interfaces, set[Summary] functions, int functionCallCount, int methodCallCount, int staticCallCount, int stmtCount, int exprCount, map[str,int] topFunctions, list[Summary] exceptionInfo, int throwCount, VarFeatureCounts varFeatures, MagicMethodCounts magicMethods, IncludeCounts includeCounts, EvalLikeCounts evalCounts, InvocationCounts invocationCounts)
@@ -321,20 +321,20 @@ str computeTickLabels(str s) {
 	return "xticklabels={<intercalate(",",displayThese)>}";
 }
 
-private str makeCoords(list[num] inputs, str mark="", str legend="") {
-	return "\\addplot<if(size(mark)>0){>[mark=<mark>]<}> coordinates {
+private str makeCoords(list[num] inputs, str mark="", str markExtra="", str legend="") {
+	return "\\addplot<if(size(mark)>0){>[mark=<mark><if(size(markExtra)>0){>,<markExtra><}>]<}> coordinates {
 		   '<intercalate(" ",[ "(<i>,<j>)" | < i,j > <- computeCoords(inputs)])>
 		   '};<if(size(legend)>0){>
 		   '\\addlegendentry{<legend>}<}>";
 }
 
-public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features", str label="fig:VarFeatures") {
+public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features", str label="fig:VarFeatures", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar | v <- getSortedVersions(s), v in smap[s] ], mark="v", legend="Variables");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="Function Calls");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="Method Calls");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ], mark="+", legend="Object Creation");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ], mark="*", legend="Property Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar | v <- getSortedVersions(s), v in smap[s] ], mark="square", markExtra=markExtra, legend="Variables");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ], mark="x", markExtra=markExtra, legend="Function Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ], mark="o", markExtra=markExtra, legend="Method Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ], mark="+", markExtra=markExtra, legend="Object Creation");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ], mark="*", markExtra=markExtra, legend="Property Uses");
 
 	int maxcoord(str s) {
 		return max([ smap[s][v].varFeatures.varVar | v <- getSortedVersions(s), v in smap[s] ] +
@@ -344,28 +344,28 @@ public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Va
 				   [ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ]) + 10;
 	}
 		
-	str res = "\\begin{figure}
+	str res = "\\begin{figure*}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
+			  '\\begin{axis}[width=\\textwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure}
+			  '\\end{figure*}
 			  ";
 	return res;	
 }
 
-public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features Scaled", str label="fig:VarFeaturesScaled") {
+public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features Scaled", str label="fig:VarFeaturesScaled", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
 	slocInfo = sloc();
 	
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="v", legend="Variables");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="Function Calls");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="Method Calls");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", legend="Object Creation");
-	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="*", legend="Property Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="square", markExtra=markExtra, legend="Variables");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", markExtra=markExtra, legend="Function Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", markExtra=markExtra, legend="Method Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", markExtra=markExtra, legend="Object Creation");
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="*", markExtra=markExtra, legend="Property Uses");
 
 	num maxcoord(str s) {
 		return max([ smap[s][v].varFeatures.varVar * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
@@ -378,7 +378,7 @@ public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str tit
 	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
+			  '\\begin{axis}[width=\\columnwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
@@ -388,11 +388,11 @@ public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str tit
 	return res;	
 }
 
-public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="Property Sets");
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="Property Gets");
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls | v <- getSortedVersions(s), v in smap[s] ], mark="+", legend="Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets | v <- getSortedVersions(s), v in smap[s] ], mark="x", markExtra=markExtra, legend="Property Sets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets | v <- getSortedVersions(s), v in smap[s] ], mark="o", markExtra=markExtra, legend="Property Gets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls | v <- getSortedVersions(s), v in smap[s] ], mark="+", markExtra=markExtra, legend="Calls");
 
 	int maxcoord(str s) {
 		return max([ smap[s][v].magicMethods.sets | v <- getSortedVersions(s), v in smap[s] ] +
@@ -403,7 +403,7 @@ public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="M
 	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
+			  '\\begin{axis}[width=\\columnwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
@@ -413,13 +413,13 @@ public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="M
 	return res;	
 }
 
-public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
 	slocInfo = sloc();
 
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="Property Sets");
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="Property Gets");
-	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", legend="Calls");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.sets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", markExtra=markExtra, legend="Property Sets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.gets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", markExtra=markExtra, legend="Property Gets");
+	coordinateBlocks += makeCoords([ smap[s][v].magicMethods.calls * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", markExtra=markExtra, legend="Calls");
 
 	num maxcoord(str s) {
 		return max([ smap[s][v].magicMethods.sets * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
@@ -430,7 +430,7 @@ public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str ti
 	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
+			  '\\begin{axis}[width=\\columnwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
@@ -440,10 +440,10 @@ public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str ti
 	return res;	
 }
 
-public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
-	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="eval Uses");
-	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="create\\_function Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ], mark="x", markExtra=markExtra, legend="eval Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount | v <- getSortedVersions(s), v in smap[s] ], mark="o", markExtra=markExtra, legend="create\\_function Uses");
 
 	int maxcoord(str s) {
 		return max([ smap[s][v].evalCounts.evalCount | v <- getSortedVersions(s), v in smap[s] ] +
@@ -453,7 +453,7 @@ public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Me
 	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
+			  '\\begin{axis}[width=\\columnwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
@@ -463,12 +463,12 @@ public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Me
 	return res;	
 }
 
-public str evalsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods") {
+public str evalsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Magic Methods", str label="fig:MagicMethods", str markExtra="") {
 	list[str] coordinateBlocks = [ ];
 	slocInfo = sloc();
 
-	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="eval Uses");
-	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="create\\_function Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.evalCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", markExtra=markExtra, legend="eval Uses");
+	coordinateBlocks += makeCoords([ smap[s][v].evalCounts.createFunctionCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", markExtra=markExtra, legend="create\\_function Uses");
 
 	num maxcoord(str s) {
 		return max([ smap[s][v].evalCounts.evalCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
@@ -478,7 +478,7 @@ public str evalsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Ma
 	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>}}]
+			  '\\begin{axis}[width=\\columnwidth,height=.25\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>}}]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
@@ -493,27 +493,31 @@ public map[str,map[str,Summary]] getSummaries(set[str] systems) {
 }
 
 public void makeCharts() {
+	wpMarkExtra = "mark phase=1,mark repeat=5";
+	mwMarkExtra = "mark phase=1,mark repeat=10";
+	maMarkExtra = "mark phase=1,mark repeat=10";
+	
 	smap = getSummaries({"WordPress"});
-	writeFile(|file:///tmp/wpVar.tex|, varFeaturesChart(smap, "WordPress", title="Variable Features in WordPress", label="fig:VFWP"));
-	writeFile(|file:///tmp/wpVarScaled.tex|, varFeaturesScaledChart(smap, "WordPress", title="Variable Features in WordPress, Scaled by SLOC", label="fig:VFWPScaled"));
-	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP"));
-	writeFile(|file:///tmp/wpMagicScaled.tex|, magicMethodsScaledChart(smap, "WordPress", title="Magic Methods in WordPress, Scaled by SLOC", label="fig:MMWPScaled"));
-	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP"));
-	writeFile(|file:///tmp/wpEvalScaled.tex|, evalsScaledChart(smap, "WordPress", title="Eval Constructs in WordPress, Scaled by SLOC", label="fig:EvalWPScaled"));
+	writeFile(|file:///tmp/wpVar.tex|, varFeaturesChart(smap, "WordPress", title="Variable Features in WordPress", label="fig:VFWP", markExtra=wpMarkExtra));
+	writeFile(|file:///tmp/wpVarScaled.tex|, varFeaturesScaledChart(smap, "WordPress", title="Variable Features in WordPress, Scaled by SLOC", label="fig:VFWPScaled", markExtra=wpMarkExtra));
+	writeFile(|file:///tmp/wpMagic.tex|, magicMethodsChart(smap, "WordPress", title="Magic Methods in WordPress", label="fig:MMWP", markExtra=wpMarkExtra));
+	writeFile(|file:///tmp/wpMagicScaled.tex|, magicMethodsScaledChart(smap, "WordPress", title="Magic Methods in WordPress, Scaled by SLOC", label="fig:MMWPScaled", markExtra=wpMarkExtra));
+	writeFile(|file:///tmp/wpEval.tex|, evalsChart(smap, "WordPress", title="Eval Constructs in WordPress", label="fig:EvalWP", markExtra=wpMarkExtra));
+	writeFile(|file:///tmp/wpEvalScaled.tex|, evalsScaledChart(smap, "WordPress", title="Eval Constructs in WordPress, Scaled by SLOC", label="fig:EvalWPScaled", markExtra=wpMarkExtra));
 
 	smap = getSummaries({"MediaWiki"});
-	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW"));
-	writeFile(|file:///tmp/mwVarScaled.tex|, varFeaturesScaledChart(smap, "MediaWiki", title="Variable Features in MediaWiki, Scaled by SLOC", label="fig:VFMWScaled"));
-	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW"));
-	writeFile(|file:///tmp/mwMagicScaled.tex|, magicMethodsScaledChart(smap, "MediaWiki", title="Magic Methods in MediaWiki, Scaled by SLOC", label="fig:MMMWScaled"));
-	writeFile(|file:///tmp/mwEval.tex|, evalsChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki", label="fig:EvalMW"));
-	writeFile(|file:///tmp/mwEvalScaled.tex|, evalsScaledChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki, Scaled by SLOC", label="fig:EvalMWScaled"));
+	writeFile(|file:///tmp/mwVar.tex|, varFeaturesChart(smap, "MediaWiki", title="Variable Features in MediaWiki", label="fig:VFMW", markExtra=mwMarkExtra));
+	writeFile(|file:///tmp/mwVarScaled.tex|, varFeaturesScaledChart(smap, "MediaWiki", title="Variable Features in MediaWiki, Scaled by SLOC", label="fig:VFMWScaled", markExtra=mwMarkExtra));
+	writeFile(|file:///tmp/mwMagic.tex|, magicMethodsChart(smap, "MediaWiki", title="Magic Methods in MediaWiki", label="fig:MMMW", markExtra=mwMarkExtra));
+	writeFile(|file:///tmp/mwMagicScaled.tex|, magicMethodsScaledChart(smap, "MediaWiki", title="Magic Methods in MediaWiki, Scaled by SLOC", label="fig:MMMWScaled", markExtra=mwMarkExtra));
+	writeFile(|file:///tmp/mwEval.tex|, evalsChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki", label="fig:EvalMW", markExtra=mwMarkExtra));
+	writeFile(|file:///tmp/mwEvalScaled.tex|, evalsScaledChart(smap, "MediaWiki", title="Eval Constructs in MediaWiki, Scaled by SLOC", label="fig:EvalMWScaled", markExtra=mwMarkExtra));
 
 	smap = getSummaries({"phpMyAdmin"});
-	writeFile(|file:///tmp/maVar.tex|, varFeaturesChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin", label="fig:VFMA"));
-	writeFile(|file:///tmp/maVarScaled.tex|, varFeaturesScaledChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin, Scaled by SLOC", label="fig:VFMAScaled"));
-	writeFile(|file:///tmp/maMagic.tex|, magicMethodsChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin", label="fig:MMMA"));
-	writeFile(|file:///tmp/maMagicScaled.tex|, magicMethodsScaledChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin, Scaled by SLOC", label="fig:MMMAScaled"));
-	writeFile(|file:///tmp/maEval.tex|, evalsChart(smap, "phpMyAdmin", title="Eval Constructs in phpMyAdmin", label="fig:EvalMA"));
-	writeFile(|file:///tmp/maEvalScaled.tex|, evalsScaledChart(smap, "phpMyAdmin", title="Eval Constructs inphpMyAdmin, Scaled by SLOC", label="fig:EvalMAScaled"));
+	writeFile(|file:///tmp/maVar.tex|, varFeaturesChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin", label="fig:VFMA", markExtra=maMarkExtra));
+	writeFile(|file:///tmp/maVarScaled.tex|, varFeaturesScaledChart(smap, "phpMyAdmin", title="Variable Features in phpMyAdmin, Scaled by SLOC", label="fig:VFMAScaled", markExtra=maMarkExtra));
+	writeFile(|file:///tmp/maMagic.tex|, magicMethodsChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin", label="fig:MMMA", markExtra=maMarkExtra));
+	writeFile(|file:///tmp/maMagicScaled.tex|, magicMethodsScaledChart(smap, "phpMyAdmin", title="Magic Methods in phpMyAdmin, Scaled by SLOC", label="fig:MMMAScaled", markExtra=maMarkExtra));
+	writeFile(|file:///tmp/maEval.tex|, evalsChart(smap, "phpMyAdmin", title="Eval Constructs in phpMyAdmin", label="fig:EvalMA", markExtra=maMarkExtra));
+	writeFile(|file:///tmp/maEvalScaled.tex|, evalsScaledChart(smap, "phpMyAdmin", title="Eval Constructs inphpMyAdmin, Scaled by SLOC", label="fig:EvalMAScaled", markExtra=maMarkExtra));
 }
