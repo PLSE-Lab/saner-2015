@@ -306,7 +306,19 @@ public void writeNumbersFile(set[str] systems) {
 }
 
 private lrel[num,num] computeCoords(list[num] inputs) {
-	return [ < idx, inputs[idx] > | idx <- index(inputs) ];
+	return [ < idx+1, inputs[idx] > | idx <- index(inputs) ];
+}
+
+str computeTicks(str s) {
+	vlist = getSortedVersions(s);
+	displayThese = [ idx+1 | idx <- index(vlist), ((idx+1)%10==1) || (idx==size(vlist)-1) ];
+	return "xtick={<intercalate(",",displayThese)>}";
+}
+
+str computeTickLabels(str s) {
+	vlist = getSortedVersions(s);
+	displayThese = [ vlist[idx] | idx <- index(vlist), ((idx+1)%10==1) || (idx==size(vlist)-1) ];
+	return "xticklabels={<intercalate(",",displayThese)>}";
 }
 
 private str makeCoords(list[num] inputs, str mark="", str legend="") {
@@ -318,27 +330,29 @@ private str makeCoords(list[num] inputs, str mark="", str legend="") {
 
 public str varFeaturesChart(map[str,map[str,Summary]] smap, str s, str title="Variable Features", str label="fig:VarFeatures") {
 	list[str] coordinateBlocks = [ ];
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar | v <- getSortedVersions(s), v in smap[s] ], mark="v", legend="Variables");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ], mark="x", legend="Function Calls");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ], mark="o", legend="Method Calls");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ], mark="+", legend="Object Creation");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ], mark="*", legend="Property Uses");
 
 	int maxcoord(str s) {
-		return max([ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ] +
+		return max([ smap[s][v].varFeatures.varVar | v <- getSortedVersions(s), v in smap[s] ] +
+				   [ smap[s][v].varFeatures.varFCall | v <- getSortedVersions(s), v in smap[s] ] +
 				   [ smap[s][v].varFeatures.varMCall | v <- getSortedVersions(s), v in smap[s] ] +
 				   [ smap[s][v].varFeatures.varNew | v <- getSortedVersions(s), v in smap[s] ] +
 				   [ smap[s][v].varFeatures.varProp | v <- getSortedVersions(s), v in smap[s] ]) + 10;
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
@@ -347,27 +361,29 @@ public str varFeaturesScaledChart(map[str,map[str,Summary]] smap, str s, str tit
 	list[str] coordinateBlocks = [ ];
 	slocInfo = sloc();
 	
+	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varVar * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="v", legend="Variables");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="x", legend="Function Calls");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="o", legend="Method Calls");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="+", legend="Object Creation");
 	coordinateBlocks += makeCoords([ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ], mark="*", legend="Property Uses");
 
 	num maxcoord(str s) {
-		return max([ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+		return max([ smap[s][v].varFeatures.varVar * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
+				   [ smap[s][v].varFeatures.varFCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
 				   [ smap[s][v].varFeatures.varMCall * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
 				   [ smap[s][v].varFeatures.varNew * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ] +
 				   [ smap[s][v].varFeatures.varProp * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]) ;
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
@@ -384,15 +400,15 @@ public str magicMethodsChart(map[str,map[str,Summary]] smap, str s, str title="M
 				   [ smap[s][v].magicMethods.calls | v <- getSortedVersions(s), v in smap[s] ]) + 10;
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
@@ -411,15 +427,15 @@ public str magicMethodsScaledChart(map[str,map[str,Summary]] smap, str s, str ti
 				   [ smap[s][v].magicMethods.calls * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]);
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
@@ -434,15 +450,15 @@ public str evalsChart(map[str,map[str,Summary]] smap, str s, str title="Magic Me
 				   [ smap[s][v].evalCounts.createFunctionCount | v <- getSortedVersions(s), v in smap[s] ]) + 10;
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
@@ -459,15 +475,15 @@ public str evalsScaledChart(map[str,map[str,Summary]] smap, str s, str title="Ma
 				   [ smap[s][v].evalCounts.createFunctionCount * 100.0 / lineCount | v <- getSortedVersions(s), v in smap[s], < lineCount, fileCount > := getOneFrom(slocInfo[s,v]) ]);
 	}
 		
-	str res = "\\begin{figure*}[t]
+	str res = "\\begin{figure}
 			  '\\centering
 			  '\\begin{tikzpicture}
-			  '\\begin{axis}[width=\\textwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west}]
+			  '\\begin{axis}[width=\\columnwidth,height=.34\\textheight,xlabel=Version,ylabel=Feature Count,xmin=1,ymin=0,xmax=<size(getSortedVersions(s))>,ymax=<maxcoord(s)>,legend style={at={(0,1)},anchor=north west},x tick label style={rotate=90,anchor=east},<computeTicks(s)>,<computeTickLabels(s)>}}]
 			  '<for (cb <- coordinateBlocks) {> <cb> <}>
 			  '\\end{axis}
 			  '\\end{tikzpicture}
 			  '\\caption{<title>.\\label{<label>}} 
-			  '\\end{figure*}
+			  '\\end{figure}
 			  ";
 	return res;	
 }
