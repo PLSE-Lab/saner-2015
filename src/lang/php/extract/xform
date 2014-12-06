@@ -1,0 +1,6 @@
+#!/bin/bash
+#find . -name Namespace.php -exec sed -i 's/class Namespace /class MWNamespace /g' \{} \; -print
+find . -iname '*.php' -exec sed -i '' 's/Namespace::/MWNamespace::/g' \{} \; -print
+find . -iname '*.inc' -exec sed -i '' 's/Namespace::/MWNamespace::/g' \{} \; -print
+find . -iname '*.php' -exec sed -i '' 's/MWMWNamespace::/MWNamespace::/g' \{} \; -print
+find . -iname '*.inc' -exec sed -i '' 's/MWMWNamespace::/MWNamespace::/g' \{} \; -print
