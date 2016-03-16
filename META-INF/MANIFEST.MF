@@ -4,6 +4,5 @@ Bundle-Name: SANER_2015
 Bundle-SymbolicName: SANER_2015
 Bundle-Version: 1.0.0
 Require-Bundle: PHPAnalysis;bundle-version="0.5.0",
- org.eclipse.imp.pdb.values,
  rascal
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
