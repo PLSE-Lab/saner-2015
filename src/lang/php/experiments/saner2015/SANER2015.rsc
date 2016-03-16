@@ -1,7 +1,7 @@
 module lang::php::experiments::saner2015::SANER2015
 
 import lang::php::ast::AbstractSyntax;
-import lang::php::util::System;
+import lang::php::ast::System;
 import lang::php::util::Corpus;
 import lang::php::util::Utils;
 import lang::php::util::Config;
@@ -16,7 +16,7 @@ import IO;
 
 import lang::csv::IO;
 // NOTE: Commented out so it is not recreated on each load; uncomment if this has not yet been created.
-import SLOC; // = |csv+rascal://src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
+import SLOC; //= |csv+project://PHPAnalysis/src/lang/php/extract/csvs/linesOfCode.csv?funname=sloc|;
 
 data Summary 
 	= systemSummary(set[Summary] classes, set[Summary] interfaces, set[Summary] functions, int functionCallCount, int methodCallCount, int staticCallCount, int stmtCount, int exprCount, map[str,int] topFunctions, list[Summary] exceptionInfo, int throwCount, VarFeatureCounts varFeatures, MagicMethodCounts magicMethods, IncludeCounts includeCounts, EvalLikeCounts evalCounts, InvocationCounts invocationCounts)
@@ -29,7 +29,7 @@ data Summary
 
 public Summary extractSummaries(System sys) {
 	set[Summary] classSummaries = { };
-	for (/ClassDef cdef := sys) {
+	for (/ClassDef cdef := sys.files) {
 		Summary s = classSummary(cdef.className, {}, cdef.modifiers, size([st | /Stmt st := cdef]), size([ex | /Expr ex := cdef]), cdef@at);
 		for (/ClassItem ci := cdef.members, ci is method) {
 			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, 0 /*computeCC(ci.body)*/, ci@at);
@@ -38,7 +38,7 @@ public Summary extractSummaries(System sys) {
 	}
 	
 	set[Summary] interfaceSummaries = { };
-	for (/InterfaceDef idef := sys) {
+	for (/InterfaceDef idef := sys.files) {
 		Summary s = interfaceSummary(idef.interfaceName, {}, idef@at);
 		for (/ClassItem ci := idef.members, ci is method) {
 			s.methods = s.methods + methodSummary(ci.name, size([st | /Stmt st := ci.body]), size([ex | /Expr ex := ci.body]), ci.modifiers, 0 /*computeCC(ci.body)*/, ci@at);
@@ -47,13 +47,13 @@ public Summary extractSummaries(System sys) {
 	}
 	
 	set[Summary] functionSummaries = { };
-	for (/fdef:function(str name, _, _, list[Stmt] body) := sys) {
+	for (/fdef:function(str name, _, _, list[Stmt] body) := sys.files) {
 		Summary s = functionSummary(name, size([st | /Stmt st := body]), size([ex | /Expr ex := body]), 0 /*computeCC(body)*/, fdef@at);
 		functionSummaries = functionSummaries + s;
 	}
 
 	map[str,int] callCounts = ( );
-	for (/c:call(name(name(n)),_) := sys) {
+	for (/c:call(name(name(n)),_) := sys.files) {
 		if (n in callCounts) {
 			callCounts[n] = callCounts[n] + 1;
 		} else {
@@ -64,21 +64,21 @@ public Summary extractSummaries(System sys) {
 	top20 = (size(ccList) >= 20) ? [0..20] : [ ];
 	cutoff = (size(ccList) >= 20) ? top20[-1] : 0;
 		
-	functionCallCount = size([c | /c:call(_,_) := sys]);
-	methodCallCount = size([c | /c:methodCall(_,_,_) := sys]);
-	staticCallCount = size([c | /c:staticCall(_,_,_) := sys]);
-	stmtCount = size([s | /Stmt s := sys]);
-	exprCount = size([e | /Expr e := sys]);
+	functionCallCount = size([c | /c:call(_,_) := sys.files]);
+	methodCallCount = size([c | /c:methodCall(_,_,_) := sys.files]);
+	staticCallCount = size([c | /c:staticCall(_,_,_) := sys.files]);
+	stmtCount = size([s | /Stmt s := sys.files]);
+	exprCount = size([e | /Expr e := sys.files]);
 	
 	// Exception information
 	list[Summary] exceptionInfo = [ ];
 	
-	throwCount = size([t | /t:\throw(_) := sys]);
-	for (/tc:tryCatch(b,cl) := sys) {
+	throwCount = size([t | /t:\throw(_) := sys.files]);
+	for (/tc:tryCatch(b,cl) := sys.files) {
 		es = exceptionSummary(size([st | /Stmt st := b]), size([ex | /Expr ex := b]), size(cl), false, tc@at);
 		exceptionInfo = exceptionInfo + es;
 	}
-	for (/tcf:tryCatchFinally(b,cl,fb) := sys) {
+	for (/tcf:tryCatchFinally(b,cl,fb) := sys.files) {
 		es = exceptionSummary(size([st | /Stmt st := b]), size([ex | /Expr ex := b]), size(cl), true, tcf@at);
 		exceptionInfo = exceptionInfo + es;
 	}
@@ -161,7 +161,7 @@ public map[str,int] countInterfaceDefs(str p) {
 	map[str,int] interfaceDefs = ( );
 	for (v <- getVersions(p)) {
 		sys = loadBinary(p,v);
-		interfaceDefs[v] = size([ c | /InterfaceDef c := sys ]);
+		interfaceDefs[v] = size([ c | /InterfaceDef c := sys.files ]);
 	}	
 	return interfaceDefs;
 }
@@ -170,7 +170,7 @@ public rel[str,str,str] gatherClassMethods(str p) {
 	rel[str,str,str] res = { };
 	for (v <- getVersions(p)) {
 		sys = loadBinary(p,v);
-		res = res + { < v, cd.className, md.name > | /ClassDef cd := sys, ClassItem md <- cd.members, md is method };
+		res = res + { < v, cd.className, md.name > | /ClassDef cd := sys.files, ClassItem md <- cd.members, md is method };
 	}
 	return res;
 }
@@ -179,7 +179,7 @@ public map[str,int] countMethodDefs(str p) {
 	map[str,int] classDefs = ( );
 	for (v <- getVersions(p)) {
 		sys = loadBinary(p,v);
-		classDefs[v] = size([ c | /ClassDef c := sys ]);
+		classDefs[v] = size([ c | /ClassDef c := sys.files ]);
 	}	
 	return classDefs;
 }
@@ -217,7 +217,7 @@ public MagicMethodCounts getMagicMethodCounts(System sys) {
 data IncludeCounts = includeCounts(int totalIncludes, int dynamicIncludes);
 
 public IncludeCounts getIncludeCounts(System sys) {
-	totalIncludes = size([ i | /i:include(_,_) := sys ]);
+	totalIncludes = size([ i | /i:include(_,_) := sys.files ]);
 	dynamicIncludes = size(gatherIncludesWithVarPaths(sys));
 	return includeCounts(totalIncludes, dynamicIncludes);
 }
@@ -225,7 +225,7 @@ public IncludeCounts getIncludeCounts(System sys) {
 data EvalLikeCounts = evalLikeCounts(int evalCount, int createFunctionCount);
 
 public EvalLikeCounts getEvalLikeCounts(System sys) {
-	createFunctionCount = size([ e | /e:call(name(name("create_function")),_) := sys]);
+	createFunctionCount = size([ e | /e:call(name(name("create_function")),_) := sys.files]);
 	evalCount = size(gatherEvals(sys));
 	return evalLikeCounts(evalCount, createFunctionCount);
 }
@@ -234,7 +234,7 @@ data InvocationCounts = invocationCounts(int callUserFunc, int callUserFuncArray
 
 public InvocationCounts getInvocationCounts(System sys) {
 	funsToFind = { "call_user_func", "call_user_func_array", "call_user_method", "call_user_method_array" };
-	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys, fn in funsToFind ];
+	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys.files, fn in funsToFind ];
 	
 	callUserFuncCount = ("call_user_func" in invokers) ? size(invokers["call_user_func"]) : 0;
 	callUserFuncArrayCount = ("call_user_func_array" in invokers) ? size(invokers["call_user_func_array"]) : 0;
@@ -249,7 +249,7 @@ data VarargsCounts = varargsCounts(int varArgsFunctions, int varArgsCalls);
 
 public VarargsCounts getVarargsCounts(System sys) {
 	funsToFind = { "func_get_args", "func_num_args", "func_get_arg" };
-	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys, fn in funsToFind ];
+	invokers = [ < fn, e@at > | /e:call(name(name(str fn)),_) := sys.files, fn in funsToFind ];
 	return varargsCounts(0, size(invokers));
 }
 
