@@ -107,6 +107,12 @@ public void extractAndWriteSummaries(str p) {
 	}
 }
 
+public void extractAndWriteSummaries() {
+	for (p <- getProducts()) {
+		extractAndWriteSummaries(p);
+	}
+}
+
 public void extractAndWriteMissingSummaries(str p) {
 	for (v <- getVersions(p), !exists(infoLoc + "<p>-<v>-oo.bin")) {
 		sys = loadBinary(p,v);
